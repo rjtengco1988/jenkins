@@ -17,6 +17,8 @@ echo "This is the sub slogan";
         <label>Password</label>
         <input type="password" value="" name="password">
         <input type="submit" value="Login" name="loginButton">
+        <br>
+        <a href="">Forgot Password</a>
     </form>
 </body>
 
