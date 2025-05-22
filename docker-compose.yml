@@ -1,0 +1,14 @@
+services:
+  jenkins:
+    build:
+      context: .
+      dockerfile: ./jenkins_docker/Dockerfile
+    ports:
+      - "5000:80"
+      - "443:443"
+    networks:
+      - lamp-docker
+
+networks:
+  lamp-docker:
+    driver: bridge

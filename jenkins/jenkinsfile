@@ -1,0 +1,64 @@
+pipeline {
+    agent any
+
+    environment {
+        // Jenkins configuration
+        REMOTE_HOST = "192.168.33.119"
+        REMOTE_USER = "dti"
+        CREDENTIALS_ID = "your-jenkins-ssh-id"
+
+        // Archive and deployment
+        ARCHIVE_NAME = "dobid_staging_dobid_admin_1.tar.gz"
+        REMOTE_DEPLOY_DIR = "ci4-project"
+    }
+
+    stages {
+        stage('Build Locally with Docker Compose') {
+            steps {
+                echo '🛠️ Building Docker containers locally...'
+                bat 'docker compose down || exit 0'
+                bat 'docker compose build'
+            }
+        }
+
+        stage('Archive the Project') {
+            steps {
+                echo '📦 Creating tar.gz archive of the project...'
+                bat "tar -czf %ARCHIVE_NAME% --exclude=vendor --exclude=node_modules ."
+            }
+        }
+
+        stage('Transfer to Remote Server') {
+            steps {
+                echo '📤 Sending project archive to remote server...'
+                sshagent (credentials: ["${CREDENTIALS_ID}"]) {
+                    bat "scp %ARCHIVE_NAME% %REMOTE_USER%@%REMOTE_HOST%:~/"
+                }
+            }
+        }
+
+        stage('Deploy on Remote Server') {
+            steps {
+                echo '🚀 Deploying on remote server via Docker Compose...'
+                sshagent (credentials: ["${CREDENTIALS_ID}"]) {
+                    bat """
+                    ssh %REMOTE_USER%@%REMOTE_HOST% ^
+                    "rm -rf %REMOTE_DEPLOY_DIR% && ^
+                    mkdir %REMOTE_DEPLOY_DIR% && ^
+                    tar -xzf %ARCHIVE_NAME% -C %REMOTE_DEPLOY_DIR% && ^
+                    cd %REMOTE_DEPLOY_DIR% && ^
+                    docker compose down || true && ^
+                    docker compose up -d"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo '🧹 Cleaning up local archive...'
+            bat "del %ARCHIVE_NAME%"
+        }
+    }
+}
